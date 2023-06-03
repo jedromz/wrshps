@@ -11,6 +11,8 @@ type GameState struct {
 	opponent      *Player
 	playerBoard   *Board
 	opponentBoard *Board
+	totalShots    int
+	hits          int
 	// A mutex is used to manage concurrent access to the state
 	m sync.Mutex
 }
@@ -81,6 +83,11 @@ func (g *GameState) GetOpponentBoard() [10][10]string {
 func (g *GameState) MarkOpponentBoard(x int, y int, result string) {
 	g.m.Lock()
 	defer g.m.Unlock()
+	if result == Sunk {
+		g.opponentBoard.PlayerState[x][y] = result
+		g.opponentBoard.DrawBorder(x, y)
+		return
+	}
 	g.opponentBoard.PlayerState[x][y] = result
 }
 
@@ -89,4 +96,24 @@ func (g *GameState) IsHitAlready(x, y int) bool {
 	defer g.m.Unlock()
 	s := g.opponentBoard.PlayerState[x][y]
 	return s == Hit || s == Miss
+}
+
+func (g *GameState) IncreaseHits(str string) {
+	g.m.Lock()
+	defer g.m.Unlock()
+	if str == "hit" || str == "sunk" {
+		g.hits++
+	}
+	g.totalShots++
+}
+
+func (g *GameState) GetTotalShots() int {
+	g.m.Lock()
+	defer g.m.Unlock()
+	return g.totalShots
+}
+func (g *GameState) GetTotalHits() int {
+	g.m.Lock()
+	defer g.m.Unlock()
+	return g.hits
 }

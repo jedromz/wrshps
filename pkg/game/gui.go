@@ -2,71 +2,53 @@ package game
 
 import (
 	"context"
+	"fmt"
 	gui "github.com/grupawp/warships-gui/v2"
 	"strconv"
+	"sync"
+	"warships/pkg/api"
 	"warships/pkg/state"
+	// other imports
 )
 
 type Gui struct {
-	gui           *gui.GUI
-	playerBoard   *gui.Board
-	opponentBoard *gui.Board
-	playerNick    *gui.Text
-	playerDesc    *gui.Text
-	opponentNick  *gui.Text
-	opponentDesc  *gui.Text
-	timer         *gui.Text
-	gameStateChan <-chan *state.GameState
-	timerChan     <-chan int
+	gui            *gui.GUI
+	playerBoard    *gui.Board
+	opponentBoard  *gui.Board
+	playerNick     *gui.Text
+	playerDesc     *gui.Text
+	opponentNick   *gui.Text
+	opponentDesc   *gui.Text
+	timer          *gui.Text
+	gameStateChan  <-chan *state.GameState
+	timerChan      <-chan int
+	gameStatusChan chan api.GameStatus
+	mu             sync.Mutex
+}
+
+func (g *Gui) SetPlayerBoard(states [10][10]gui.State) {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	g.playerBoard.SetStates(states)
 }
 
 // NewGui - creates new gui
 func NewGui() *Gui {
 	return &Gui{
 		gui:           gui.NewGUI(true),
-		playerNick:    gui.NewText(1, 25, "Player", nil),
-		playerDesc:    gui.NewText(1, 26, "Your board", nil),
-		opponentNick:  gui.NewText(50, 25, "Opponent", nil),
-		opponentDesc:  gui.NewText(50, 26, "Opponent board", nil),
-		playerBoard:   gui.NewBoard(1, 4, nil),
-		opponentBoard: gui.NewBoard(50, 4, nil),
-		timer:         gui.NewText(1, 1, "", nil),
+		playerNick:    gui.NewText(playerNickX, playerNickY, "Player", nil),
+		playerDesc:    gui.NewText(playerDescX, playerDescY, "Your board", nil),
+		opponentNick:  gui.NewText(opponentNickX, opponentNickY, "Opponent", nil),
+		opponentDesc:  gui.NewText(opponentDescX, opponentDescY, "Opponent board", nil),
+		playerBoard:   gui.NewBoard(playerBoardX, playerBoardY, nil),
+		opponentBoard: gui.NewBoard(opponentBoardX, opponentBoardY, nil),
+		timer:         gui.NewText(timerX, timerY, "", nil),
+		mu:            sync.Mutex{},
 	}
 }
-func (g *Gui) SetPlayerBoard(states [10][10]gui.State) {
-	g.playerBoard.SetStates(states)
-
-}
-
-// DisplayBoards - displays boards
-func (g *Gui) DisplayBoards(ctx context.Context, c chan GameEvent, shots chan string) {
-
-	ctx, cancel := context.WithCancel(ctx)
-	g.setup()
-	defer cancel()
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case s := <-c:
-			g.updateGameState(s)
-			if s.GameState == "ended" {
-				g.gui.Draw(gui.NewText(1, 2, s.Result, nil))
-			}
-			if s.ShouldFire {
-				g.gui.Draw(gui.NewText(1, 2, "Your turn", nil))
-				coords := g.opponentBoard.Listen(ctx)
-				shots <- coords
-			} else {
-				g.gui.Draw(gui.NewText(1, 2, "Enemy turn", nil))
-			}
-		case timeLeft := <-g.timerChan:
-			g.timer.SetText(strconv.Itoa(timeLeft))
-		}
-	}
-}
-
 func (g *Gui) setup() {
+	g.mu.Lock()
+	defer g.mu.Unlock()
 	g.gui.Draw(g.playerBoard)
 	g.gui.Draw(g.opponentBoard)
 	g.gui.Draw(g.playerNick)
@@ -76,36 +58,87 @@ func (g *Gui) setup() {
 	g.gui.Draw(g.timer)
 }
 
-func (g *Gui) StartGui(ctx context.Context) {
-	g.gui.Start(ctx, nil)
-}
-
 func (g *Gui) updateGameState(event GameEvent) {
-	g.playerBoard.SetStates(mapBoardToGuiStates(event.PlayerStates))
-	g.opponentBoard.SetStates(mapBoardToGuiStates(event.OpponentStates))
+	g.mu.Lock()
+	defer g.mu.Unlock()
 	g.playerNick.SetText(event.PlayerName)
 	g.playerDesc.SetText(event.PlayerDesc)
 	g.opponentNick.SetText(event.OpponentName)
 	g.opponentDesc.SetText(event.OpponentDesc)
-	g.timer.SetText(strconv.Itoa(event.TimeLeft))
-
+	g.timer.SetText("Timer: " + strconv.Itoa(event.TimeLeft))
 }
 
-func mapBoardToGuiStates(board [10][10]string) [10][10]gui.State {
-	var states [10][10]gui.State
-	for i, row := range board {
-		for j, cell := range row {
-			switch cell {
-			case "S":
-				states[i][j] = gui.Ship
-			case "M":
-				states[i][j] = gui.Miss
-			case "H":
-				states[i][j] = gui.Hit
-			default:
-				states[i][j] = gui.Empty
-			}
+func (g *Gui) sendPlayerShots(ctx context.Context, shotsChannel chan string) {
+	coord := g.playerBoard.Listen(ctx)
+	shotsChannel <- coord
+}
+
+func (g *Gui) displayBoard(ctx context.Context) {
+	g.gui.Draw(g.playerBoard)
+	g.gui.Draw(g.opponentBoard)
+}
+
+func (g *Gui) handleGameStatus(ctx context.Context, events chan api.GameStatus, shots chan string) {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case status := <-events:
+			g.mu.Lock()
+			g.gui.Draw(gui.NewText(timerX, timerY, "Timer:"+strconv.Itoa(status.Timer), nil))
+			g.gui.Draw(gui.NewText(playerNickX, playerNickY, status.Nick, nil))
+			g.gui.Draw(gui.NewText(opponentNickX, playerNickY, status.Opponent, nil))
+
+			g.mu.Unlock()
 		}
 	}
-	return states
+}
+
+func (g *Gui) handleGameState(ctx context.Context, state chan api.GameState) {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case gameState := <-state:
+			g.mu.Lock()
+			g.playerBoard.SetStates(mapStatesToGuiMarks(gameState.PlayerBoard))
+			g.opponentBoard.SetStates(mapStatesToGuiMarks(gameState.OppBoard))
+			g.gui.Draw(gui.NewText(1, 2, fmt.Sprintf("Accuracy: %s %%",
+				getAccuracy(gameState.TotalHits, gameState.TotalShots)), nil))
+			g.mu.Unlock()
+		}
+	}
+}
+
+func getAccuracy(hits, shots int) string {
+	if shots == 0 {
+		return "0.00"
+	}
+	accuracy := float64(hits) / float64(shots) * 100
+	return fmt.Sprintf("%.2f", accuracy)
+}
+
+func (g *Gui) listenPlayerShots(ctx context.Context, shots chan string) {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+			shot := g.opponentBoard.Listen(ctx)
+			shots <- shot
+		}
+	}
+}
+
+func mapStatesToGuiMarks(sts [10][10]string) [10][10]gui.State {
+	var mapped [10][10]gui.State
+	for i, row := range sts {
+		for j, s := range row {
+			if s == state.Sunk {
+				s = state.Hit
+			}
+			mapped[i][j] = gui.State(s)
+		}
+	}
+	return mapped
 }

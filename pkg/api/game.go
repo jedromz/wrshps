@@ -23,16 +23,13 @@ func NewGame() *Game {
 }
 
 func (g *Game) FireShot(coord string) (FireResult, error) {
-	x, y := mapToState(coord)
-	if g.state.IsHitAlready(x, y) {
-		return FireResult{}, ErrAlreadyHit
-	}
 	result, err := g.client.Fire(FireData{
 		Coord: coord},
 	)
 	if err != nil {
 		return FireResult{}, err
 	}
+	g.MarkOpponent(coord, result)
 	return result, err
 }
 
@@ -95,11 +92,12 @@ func (g *Game) MarkOpponent(shot string, result FireResult) {
 	var mark string
 	switch result.Result {
 	case "sunk":
-		mark = state.Hit
+		mark = state.Sunk
 	case "hit":
 		mark = state.Hit
 	case "miss":
 		mark = state.Miss
 	}
+	g.state.IncreaseHits(result.Result)
 	g.state.MarkOpponentBoard(x, y, mark)
 }

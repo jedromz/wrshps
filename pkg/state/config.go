@@ -1,8 +1,9 @@
 package state
 
 const (
-	Ship  = "S"
+	Ship  = "Ship"
 	Empty = ""
-	Hit   = "H"
-	Miss  = "M"
+	Hit   = "Hit"
+	Miss  = "Miss"
+	Sunk  = "Sunk"
 )

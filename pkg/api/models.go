@@ -59,3 +59,14 @@ type PlayerStats struct {
 type TopPlayerStats struct {
 	Stats []PlayerStats `json:"stats"`
 }
+
+type Shot struct {
+	Coord string `json:"coord"`
+}
+
+type GameState struct {
+	PlayerBoard [10][10]string `json:"player_board"`
+	OppBoard    [10][10]string `json:"opp_board"`
+	TotalShots  int            `json:"total_shots"`
+	TotalHits   int            `json:"total_hits"`
+}

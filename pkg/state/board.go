@@ -21,3 +21,7 @@ func NewBoard() *Board {
 func (b *Board) updatePlayerStates(playerState [10][10]string) {
 	b.PlayerState = playerState
 }
+
+func (b *Board) Mark(row, col int, state string) {
+	b.PlayerState[row][col] = state
+}

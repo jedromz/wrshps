@@ -166,6 +166,7 @@ func (c *Client) GetGameBoard() (*GameBoard, error) {
 	}
 }
 func (c *Client) Fire(data FireData) (FireResult, error) {
+
 	bodyBytes, err := json.Marshal(data)
 	if err != nil {
 		return FireResult{}, err

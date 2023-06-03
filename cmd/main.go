@@ -2,14 +2,16 @@ package main
 
 import (
 	"context"
+	"warships/pkg/api"
 	"warships/pkg/game"
 )
 
 func main() {
-	c := make(chan game.GameEvent)
+	c := make(chan api.GameStatus)
 	s := make(chan string)
-	t := make(chan int)
+	state := make(chan api.GameState)
+
 	ctx := context.Background()
-	app := game.Setup(c, s, t)
+	app := game.NewApp(c, s, state)
 	app.Run(ctx)
 }
