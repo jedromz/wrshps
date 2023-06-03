@@ -78,27 +78,33 @@ func (g *Gui) displayBoard(ctx context.Context) {
 	g.gui.Draw(g.opponentBoard)
 }
 
-func (g *Gui) handleGameStatus(ctx context.Context, events chan api.GameStatus, shots chan string) {
+func (g *Gui) handleGameStatus(ctx context.Context, events chan api.GameStatus) {
+loop:
 	for {
 		select {
 		case <-ctx.Done():
-			return
+			fmt.Println("Done handling status")
+			break loop
 		case status := <-events:
 			g.mu.Lock()
 			g.gui.Draw(gui.NewText(timerX, timerY, "Timer:"+strconv.Itoa(status.Timer), nil))
 			g.gui.Draw(gui.NewText(playerNickX, playerNickY, status.Nick, nil))
 			g.gui.Draw(gui.NewText(opponentNickX, playerNickY, status.Opponent, nil))
-
+			if status.GameStatus == "ended" {
+				g.gui.Draw(gui.NewText(5, 10, "Game ended. Press ctrl + c to go back to the menu", nil))
+			}
 			g.mu.Unlock()
 		}
 	}
 }
 
 func (g *Gui) handleGameState(ctx context.Context, state chan api.GameState) {
+loop:
 	for {
 		select {
 		case <-ctx.Done():
-			return
+			fmt.Println("Done hanlding state")
+			break loop
 		case gameState := <-state:
 			g.mu.Lock()
 			g.playerBoard.SetStates(mapStatesToGuiMarks(gameState.PlayerBoard))
@@ -119,13 +125,17 @@ func getAccuracy(hits, shots int) string {
 }
 
 func (g *Gui) listenPlayerShots(ctx context.Context, shots chan string) {
+loop:
 	for {
 		select {
 		case <-ctx.Done():
-			return
+			fmt.Println("Done listening")
+			break loop
 		default:
 			shot := g.opponentBoard.Listen(ctx)
-			shots <- shot
+			if shot != "" {
+				shots <- shot
+			}
 		}
 	}
 }

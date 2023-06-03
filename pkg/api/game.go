@@ -88,6 +88,9 @@ func (g *Game) GetOpponentBoard() [10][10]string {
 }
 
 func (g *Game) MarkOpponent(shot string, result FireResult) {
+	if shot == "" {
+		return
+	}
 	x, y := mapToState(shot)
 	var mark string
 	switch result.Result {

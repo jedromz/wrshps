@@ -2,6 +2,7 @@ package game
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"time"
 	"warships/pkg/api"
@@ -31,20 +32,16 @@ func NewApp(gameStatusChannel chan api.GameStatus, playerShotsChannel chan strin
 
 func (a *App) Run(ctx context.Context) {
 	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
 
 	a.wg.Add(9)
 
 	a.game.StartGame()
 	board, err := a.game.LoadPlayerBoard()
 	if err != nil {
-		return
+		a.errChan <- err // Send error to errChan
 	}
 	_, err = a.game.SetPlayerBoard(board.Board)
 
-	if err != nil {
-		return
-	}
 	go func() {
 		defer a.wg.Done()
 		a.updateGameStatus(ctx)
@@ -56,7 +53,7 @@ func (a *App) Run(ctx context.Context) {
 	}()
 	go func() {
 		defer a.wg.Done()
-		a.updateGameState(ctx)
+		a.updateGameState(ctx, cancel)
 	}()
 
 	go func() {
@@ -66,7 +63,7 @@ func (a *App) Run(ctx context.Context) {
 
 	go func() {
 		defer a.wg.Done()
-		a.gui.handleGameStatus(ctx, a.gameStatusChannel, a.playerShotsChannel)
+		a.gui.handleGameStatus(ctx, a.gameStatusChannel)
 	}()
 
 	go func() {
@@ -87,18 +84,21 @@ func (a *App) Run(ctx context.Context) {
 	a.gui.gui.Start(ctx, nil)
 
 	a.wg.Wait() // Wait for all goroutines to finish
+
+	fmt.Println("Game over")
 }
 
 // updates game status from the server
-func (a *App) updateGameState(ctx context.Context) {
+func (a *App) updateGameState(ctx context.Context, cancel context.CancelFunc) {
 	ticker := time.NewTicker(500 * time.Millisecond)
 	defer ticker.Stop()
-
+loop:
 	for {
 		select {
 		case <-ctx.Done():
 			// If the context is canceled, stop the loop
-			return
+			fmt.Println("Done updating Game state ")
+			break loop
 		case <-ticker.C:
 			state, err := a.game.GetGameStatus()
 			oppShots := state.OppShots
@@ -106,6 +106,9 @@ func (a *App) updateGameState(ctx context.Context) {
 			if err != nil {
 				a.errChan <- err // Send error to errChan
 				continue
+			}
+			if state.GameStatus == "ended" {
+				cancel()
 			}
 			a.gameStatusChannel <- state
 		}
@@ -116,19 +119,18 @@ func (a *App) updateGameState(ctx context.Context) {
 func (a *App) updateGameStatus(ctx context.Context) {
 	ticker := time.NewTicker(100 * time.Millisecond)
 	defer ticker.Stop()
+loop:
 	for {
 		select {
 		case <-ctx.Done():
-
-			return
+			fmt.Println("Done updating status")
+			break loop
 		case <-ticker.C:
-
 			state, err := a.game.GetGameState()
 			if err != nil {
 				a.errChan <- err
 				continue
 			}
-
 			a.gameStateChannel <- api.GameState{
 				PlayerBoard: state.GetPlayerBoard(),
 				OppBoard:    state.GetOpponentBoard(),
@@ -141,11 +143,13 @@ func (a *App) updateGameStatus(ctx context.Context) {
 
 // Modified handleError to accept a cancel function
 func (a *App) handleError(ctx context.Context, cancel context.CancelFunc) {
+loop:
 	for {
 		select {
 		case <-ctx.Done():
+			fmt.Println("Done handling erros")
 			// If the context is cancelled, stop the loop
-			return
+			break loop
 		case err := <-a.errChan:
 			a.gui.gui.Log("Error: %v", err)
 		}
@@ -153,10 +157,12 @@ func (a *App) handleError(ctx context.Context, cancel context.CancelFunc) {
 }
 
 func (a *App) readPlayerShots(ctx context.Context) {
+loop:
 	for {
 		select {
 		case <-ctx.Done():
-			return
+			fmt.Println("Done reading shots")
+			break loop
 		case shot := <-a.playerShotsChannel:
 			_, err := a.game.FireShot(shot)
 			if err != nil {
