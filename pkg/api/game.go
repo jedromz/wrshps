@@ -2,6 +2,8 @@ package api
 
 import (
 	"errors"
+	"fmt"
+	"strconv"
 	"warships/pkg/state"
 )
 
@@ -34,8 +36,8 @@ func (g *Game) FireShot(coord string) (FireResult, error) {
 }
 
 // StartGame starts the game
-func (g *Game) StartGame() {
-	_, err := g.client.StartGame()
+func (g *Game) StartGame(nick, desc, targetNick string, coords []string, botGame bool) {
+	_, err := g.client.StartGame(nick, desc, targetNick, coords, botGame)
 	if err != nil {
 		return
 	}
@@ -49,6 +51,7 @@ func (g *Game) GetGameStatus() (GameStatus, error) {
 	return gameState, nil
 }
 func (g *Game) SetPlayerBoard(coords []string) ([10][10]string, error) {
+
 	board, err := g.state.UpdatePlayerBoard(setStatesFromCoords(coords, state.Ship))
 	if err != nil {
 		return [10][10]string{}, err
@@ -57,7 +60,7 @@ func (g *Game) SetPlayerBoard(coords []string) ([10][10]string, error) {
 	return board, nil
 }
 
-func (g *Game) GetDescription() (*GameDescription, error) {
+func (g *Game) GetDescription() (GameDescription, error) {
 	return g.client.GetGameDescription()
 }
 
@@ -103,4 +106,92 @@ func (g *Game) MarkOpponent(shot string, result FireResult) {
 	}
 	g.state.IncreaseHits(result.Result)
 	g.state.MarkOpponentBoard(x, y, mark)
+}
+
+func (g *Game) UpdatePlayerInfo(name string, description string) {
+	g.state.UpdatePlayerInfo(name, description)
+}
+
+func (g *Game) GetPlayerInfo() (string, string) {
+	return g.state.GetPlayerInfo()
+}
+
+func (g *Game) UpdatePlayersDesc(d GameDescription) {
+	g.state.UpdatePlayersDesc(d.Desc, d.OppDesc)
+}
+
+func (g *Game) GetTopPlayerStats() (TopPlayerStats, error) {
+	stats, err := g.client.GetTopPlayerStats()
+	if err != nil {
+		return TopPlayerStats{}, err
+	}
+	return stats, nil
+}
+
+func (g *Game) MarkPlayerShip(coords string) {
+	x, y := mapToState(coords)
+	g.state.AddShip(x, y)
+}
+
+func (g *Game) GetPlayerCoords() []string {
+	states := g.state.GetPlayerBoard()
+
+	var coords []string
+	for i, row := range states {
+		for j, s := range row {
+			if s == state.Ship {
+				coords = append(coords, mapFromState(i, j))
+			}
+		}
+	}
+
+	// Ensure coordinates range from A1 to J10
+	var fixedCoords []string
+	for _, coord := range coords {
+		if isValidCoord(coord) {
+			fixedCoords = append(fixedCoords, coord)
+		}
+	}
+
+	return fixedCoords
+}
+
+func (g *Game) GetPlayerStats(name string) GameStats {
+	stats, err := g.client.GetPlayerStats(name)
+	if err != nil {
+		fmt.Errorf("error getting player stats: %v", err)
+		return GameStats{}
+	}
+	return stats
+}
+
+func (g *Game) GetPlayerLobby() []LobbyPlayer {
+	lobby, err := g.client.GetLobbyPlayers()
+	if err != nil {
+		return []LobbyPlayer{}
+	}
+	return lobby
+}
+
+func mapFromState(x, y int) string {
+	return string(byte(x+65)) + strconv.Itoa(y+1)
+}
+
+func isValidCoord(coord string) bool {
+	if len(coord) < 2 || len(coord) > 3 {
+		return false
+	}
+
+	column := coord[0]
+	row := coord[1:]
+	if column < 'A' || column > 'J' {
+		return false
+	}
+
+	num, err := strconv.Atoi(row)
+	if err != nil || num < 1 || num > 10 {
+		return false
+	}
+
+	return true
 }

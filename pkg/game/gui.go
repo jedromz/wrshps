@@ -19,6 +19,7 @@ type Gui struct {
 	playerDesc     *gui.Text
 	opponentNick   *gui.Text
 	opponentDesc   *gui.Text
+	turn           *gui.Text
 	timer          *gui.Text
 	gameStateChan  <-chan *state.GameState
 	timerChan      <-chan int
@@ -42,11 +43,12 @@ func NewGui() *Gui {
 		opponentDesc:  gui.NewText(opponentDescX, opponentDescY, "Opponent board", nil),
 		playerBoard:   gui.NewBoard(playerBoardX, playerBoardY, nil),
 		opponentBoard: gui.NewBoard(opponentBoardX, opponentBoardY, nil),
+		turn:          gui.NewText(1, 3, "", nil),
 		timer:         gui.NewText(timerX, timerY, "", nil),
 		mu:            sync.Mutex{},
 	}
 }
-func (g *Gui) setup() {
+func (g *Gui) update() {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 	g.gui.Draw(g.playerBoard)
@@ -83,13 +85,12 @@ loop:
 	for {
 		select {
 		case <-ctx.Done():
-			fmt.Println("Done handling status OK")
 			break loop
 		case status := <-events:
 			g.mu.Lock()
-			g.gui.Draw(gui.NewText(timerX, timerY, "Timer:"+strconv.Itoa(status.Timer), nil))
-			g.gui.Draw(gui.NewText(playerNickX, playerNickY, status.Nick, nil))
-			g.gui.Draw(gui.NewText(opponentNickX, playerNickY, status.Opponent, nil))
+			g.updateTurn(status)
+			g.updateTimer(status)
+			g.updatePlayers(status)
 			if status.GameStatus == "ended" {
 				g.gui.Draw(gui.NewText(5, 10, "Game ended. Press ctrl + c to go back to the menu", nil))
 			}
@@ -98,16 +99,38 @@ loop:
 	}
 }
 
+func (g *Gui) updatePlayers(status api.GameStatus) {
+	g.playerNick.SetText(status.Nick)
+	g.gui.Draw(g.playerNick)
+	g.opponentNick.SetText(status.Opponent)
+	g.gui.Draw(g.opponentNick)
+}
+
+func (g *Gui) updateTimer(status api.GameStatus) {
+	g.timer.SetText(fmt.Sprintf("Timer: %d", status.Timer))
+	g.gui.Draw(g.timer)
+}
+
+func (g *Gui) updateTurn(status api.GameStatus) {
+	if status.ShouldFire {
+		g.turn.SetText("Your turn")
+		g.gui.Draw(g.turn)
+	} else {
+		g.turn.SetText("Opponent's turn")
+		g.gui.Draw(g.turn)
+	}
+}
+
 func (g *Gui) handleGameState(ctx context.Context, state chan api.GameState) {
 loop:
 	for {
 		select {
 		case <-ctx.Done():
-			fmt.Println("Done hanlding state OK")
 			break loop
 		case gameState := <-state:
 			g.mu.Lock()
 			g.playerBoard.SetStates(mapStatesToGuiMarks(gameState.PlayerBoard))
+			g.opponentBoard.SetStates(mapStatesToGuiMarks(gameState.OppBoard))
 			g.opponentBoard.SetStates(mapStatesToGuiMarks(gameState.OppBoard))
 			g.gui.Draw(gui.NewText(1, 2, fmt.Sprintf("Accuracy: %s %%",
 				getAccuracy(gameState.TotalHits, gameState.TotalShots)), nil))

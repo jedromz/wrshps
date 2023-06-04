@@ -1,5 +1,10 @@
 package api
 
+import (
+	"fmt"
+	"sort"
+)
+
 type GameStatus struct {
 	GameStatus     string   `json:"game_status"`
 	LastGameStatus string   `json:"last_game_status"`
@@ -55,6 +60,21 @@ type PlayerStats struct {
 	Wins   int    `json:"wins"`
 }
 
+// Function to print PlayerStats in a formatted manner
+func (ps PlayerStats) String() string {
+	return fmt.Sprintf("Nick: %s, Games: %d, Points: %d, Rank: %d, Wins: %d",
+		ps.Nick, ps.Games, ps.Points, ps.Rank, ps.Wins)
+}
+
+// Function to print TopPlayerStats in a formatted manner
+func (tps TopPlayerStats) String() string {
+	var result string
+	for i, ps := range tps.Stats {
+		result += fmt.Sprintf("%d.%s\n", i+1, ps)
+	}
+	return result
+}
+
 // TopPlayerStats represents statistics of top 10 players
 type TopPlayerStats struct {
 	Stats []PlayerStats `json:"stats"`
@@ -69,4 +89,47 @@ type GameState struct {
 	OppBoard    [10][10]string `json:"opp_board"`
 	TotalShots  int            `json:"total_shots"`
 	TotalHits   int            `json:"total_hits"`
+	PlayerDesc  string         `json:"player_desc"`
+	OppDesc     string         `json:"opp_desc"`
+}
+type GameStat struct {
+	Games  int    `json:"games"`
+	Nick   string `json:"nick"`
+	Points int    `json:"points"`
+	Rank   int    `json:"rank"`
+	Wins   int    `json:"wins"`
+}
+
+type GameStats []GameStat
+
+func (g GameStats) Len() int {
+	return len(g)
+}
+
+func (g GameStats) Less(i, j int) bool {
+	if g[i].Wins != g[j].Wins {
+		return g[i].Wins > g[j].Wins
+	}
+	return g[i].Nick < g[j].Nick
+}
+
+func (g GameStats) Swap(i, j int) {
+	g[i], g[j] = g[j], g[i]
+}
+func (g GameStats) String() string {
+	// Sort the game statistics before printing
+	sort.Sort(g)
+
+	// Format the game statistics as a string
+	var result string
+	for _, stat := range g {
+		result += fmt.Sprintf("Nick: %s\n", stat.Nick)
+		result += fmt.Sprintf("Games: %d\n", stat.Games)
+		result += fmt.Sprintf("Points: %d\n", stat.Points)
+		result += fmt.Sprintf("Rank: %d\n", stat.Rank)
+		result += fmt.Sprintf("Wins: %d\n", stat.Wins)
+		result += "\n"
+	}
+
+	return result
 }

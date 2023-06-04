@@ -13,5 +13,5 @@ func main() {
 
 	ctx := context.Background()
 	app := game.NewApp(c, s, state)
-	app.Run(ctx)
+	app.Menu(ctx)
 }

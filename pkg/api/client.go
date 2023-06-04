@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -77,13 +78,13 @@ func (c *Client) GetGameStatus() (GameStatus, error) {
 		return GameStatus{}, errors.New(fmt.Sprintf("unexpected API error %v %v", resp.StatusCode, fmt.Sprintf("%s", all)))
 	}
 }
-func (c *Client) StartGame() (string, error) {
+func (c *Client) StartGame(nick, desc, targetNick string, coords []string, botGame bool) (string, error) {
 	bodyData := map[string]interface{}{
-		"coords":      []string{},
-		"desc":        "",
-		"nick":        "",
-		"target_nick": "",
-		"wpbot":       true,
+		"coords":      coords,
+		"desc":        desc,
+		"nick":        nick,
+		"target_nick": targetNick,
+		"wpbot":       botGame,
 	}
 
 	body, err := json.Marshal(bodyData)
@@ -253,45 +254,45 @@ func (c *Client) AbandonGame() error {
 		return errors.New("unexpected API error")
 	}
 }
-func (c *Client) GetGameDescription() (*GameDescription, error) {
+func (c *Client) GetGameDescription() (GameDescription, error) {
 	req, err := http.NewRequest(http.MethodGet, c.BaseURL+GameDescURL, nil)
 	if err != nil {
-		return nil, err
+		return GameDescription{}, err
 	}
 	req.Header.Set("X-Auth-Token", c.Token)
 
 	resp, err := c.Client.Do(req)
 	if err != nil {
-		return nil, err
+		return GameDescription{}, err
 	}
 	defer resp.Body.Close()
 
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return nil, err
+		return GameDescription{}, err
 	}
 
 	switch resp.StatusCode {
 	case 200:
 		var gameDescription GameDescription
 		if err := json.Unmarshal(body, &gameDescription); err != nil {
-			return nil, err
+			return GameDescription{}, err
 		}
-		return &gameDescription, nil
+		return gameDescription, nil
 	case 401:
 		var errResp UnauthorizedError
 		json.Unmarshal(body, &errResp)
-		return nil, errResp
+		return GameDescription{}, err
 	case 404:
 		var errResp NotFoundError
 		json.Unmarshal(body, &errResp)
-		return nil, errResp
+		return GameDescription{}, err
 	case 429:
 		var errResp RateLimitExceededError
 		json.Unmarshal(body, &errResp)
-		return nil, errResp
+		return GameDescription{}, err
 	default:
-		return nil, errors.New("unexpected API error")
+		return GameDescription{}, errors.New("unexpected API error")
 	}
 }
 func (c *Client) RefreshGameSession() error {
@@ -453,37 +454,40 @@ func (c *Client) GetTopPlayerStats() (TopPlayerStats, error) {
 	return topStats, nil
 }
 
-// GetPlayerStats retrieves a player's statistics given the nick
-func (c *Client) GetPlayerStats(nick string) (PlayerStats, error) {
-	var stats PlayerStats
+func (c *Client) GetPlayerStats(nick string) (GameStats, error) {
+	url := "https://go-pjatk-server.fly.dev/api/stats/" + strings.TrimSpace(nick)
 
-	req, err := http.NewRequest(http.MethodGet, c.BaseURL+"/stats/"+nick, nil)
+	// Create the HTTP request
+	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
-		return stats, err
+		return nil, fmt.Errorf("error creating request: %v", err)
 	}
 
-	resp, err := c.Client.Do(req)
+	// Set the request headers
+	req.Header.Set("Content-Type", "application/json")
+
+	// Send the request
+	client := &http.Client{}
+	resp, err := client.Do(req)
 	if err != nil {
-		return stats, err
+		return nil, fmt.Errorf("error sending request: %v", err)
 	}
 	defer resp.Body.Close()
 
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return stats, err
-	}
-
+	// Check the response status code
 	if resp.StatusCode != http.StatusOK {
-		var errResp BadRequestError
-		if err := json.Unmarshal(body, &errResp); err != nil {
-			return stats, err
-		}
-		return stats, errResp
+		return nil, fmt.Errorf("unexpected response status code: %d", resp.StatusCode)
 	}
 
-	if err := json.Unmarshal(body, &stats); err != nil {
-		return stats, err
+	// Read the response body
+	var response struct {
+		Stats GameStat `json:"stats"`
+	}
+	err = json.NewDecoder(resp.Body).Decode(&response)
+	if err != nil {
+		fmt.Println("Error:", err)
+		return nil, err
 	}
 
-	return stats, nil
+	return GameStats{response.Stats}, nil
 }

@@ -1,4 +1,3 @@
-// state.go
 package state
 
 import (
@@ -13,8 +12,7 @@ type GameState struct {
 	opponentBoard *Board
 	totalShots    int
 	hits          int
-	// A mutex is used to manage concurrent access to the state
-	m sync.Mutex
+	m             sync.Mutex
 }
 
 // NewGameState returns a new GameState
@@ -116,4 +114,41 @@ func (g *GameState) GetTotalHits() int {
 	g.m.Lock()
 	defer g.m.Unlock()
 	return g.hits
+}
+
+func (g *GameState) UpdatePlayerInfo(name string, description string) {
+	g.m.Lock()
+	defer g.m.Unlock()
+	g.player.Nick = name
+	g.player.Description = description
+}
+
+func (g *GameState) GetPlayerInfo() (string, string) {
+	g.m.Lock()
+	defer g.m.Unlock()
+	return g.player.Nick, g.player.Description
+}
+
+func (g *GameState) GetOppDesc() string {
+	g.m.Lock()
+	defer g.m.Unlock()
+	return g.opponent.Description
+}
+func (g *GameState) GetPlayerDesc() string {
+	g.m.Lock()
+	defer g.m.Unlock()
+	return g.player.Description
+}
+
+func (g *GameState) UpdatePlayersDesc(desc, oppDesc string) {
+	g.m.Lock()
+	defer g.m.Unlock()
+	g.player.Description = desc
+	g.opponent.Description = oppDesc
+}
+
+func (g *GameState) AddShip(x int, y int) {
+	g.m.Lock()
+	defer g.m.Unlock()
+	g.playerBoard.PlayerState[x][y] = Ship
 }
