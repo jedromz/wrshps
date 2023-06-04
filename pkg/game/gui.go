@@ -83,7 +83,7 @@ loop:
 	for {
 		select {
 		case <-ctx.Done():
-			fmt.Println("Done handling status")
+			fmt.Println("Done handling status OK")
 			break loop
 		case status := <-events:
 			g.mu.Lock()
@@ -103,7 +103,7 @@ loop:
 	for {
 		select {
 		case <-ctx.Done():
-			fmt.Println("Done hanlding state")
+			fmt.Println("Done hanlding state OK")
 			break loop
 		case gameState := <-state:
 			g.mu.Lock()
@@ -129,7 +129,7 @@ loop:
 	for {
 		select {
 		case <-ctx.Done():
-			fmt.Println("Done listening")
+			fmt.Println("Done listening OK")
 			break loop
 		default:
 			shot := g.opponentBoard.Listen(ctx)

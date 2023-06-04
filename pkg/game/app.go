@@ -33,7 +33,8 @@ func NewApp(gameStatusChannel chan api.GameStatus, playerShotsChannel chan strin
 func (a *App) Run(ctx context.Context) {
 	ctx, cancel := context.WithCancel(ctx)
 
-	a.wg.Add(9)
+	var wg sync.WaitGroup
+	wg.Add(9)
 
 	a.game.StartGame()
 	board, err := a.game.LoadPlayerBoard()
@@ -43,49 +44,53 @@ func (a *App) Run(ctx context.Context) {
 	_, err = a.game.SetPlayerBoard(board.Board)
 
 	go func() {
-		defer a.wg.Done()
+		defer wg.Done()
 		a.updateGameStatus(ctx)
 	}()
 
 	go func() {
-		defer a.wg.Done()
+		defer wg.Done()
 		a.gui.handleGameState(ctx, a.gameStateChannel)
 	}()
 	go func() {
-		defer a.wg.Done()
+		defer wg.Done()
 		a.updateGameState(ctx, cancel)
 	}()
 
 	go func() {
-		defer a.wg.Done()
+		defer wg.Done()
 		a.gui.displayBoard(ctx)
 	}()
 
 	go func() {
-		defer a.wg.Done()
+		defer wg.Done()
 		a.gui.handleGameStatus(ctx, a.gameStatusChannel)
 	}()
 
 	go func() {
-		defer a.wg.Done()
+		defer wg.Done()
 		a.handleError(ctx, cancel)
 	}()
 
 	go func() {
-		defer a.wg.Done()
+		defer wg.Done()
 		a.readPlayerShots(ctx)
 	}()
 
 	go func() {
-		defer a.wg.Done()
+		defer wg.Done()
 		a.gui.listenPlayerShots(ctx, a.playerShotsChannel)
 	}()
-
-	a.gui.gui.Start(ctx, nil)
-
-	a.wg.Wait() // Wait for all goroutines to finish
-
+	go func() {
+		defer wg.Done()
+		a.gui.gui.Start(ctx, nil)
+	}()
+	wg.Wait() // Wait for all goroutines to finish
 	fmt.Println("Game over")
+
+	fmt.Println("What now?")
+	fmt.Scanln()
+
 }
 
 // updates game status from the server
@@ -96,20 +101,20 @@ loop:
 	for {
 		select {
 		case <-ctx.Done():
-			// If the context is canceled, stop the loop
 			fmt.Println("Done updating Game state ")
 			break loop
 		case <-ticker.C:
 			state, err := a.game.GetGameStatus()
-			oppShots := state.OppShots
-			a.game.MarkOpponentShots(oppShots)
 			if err != nil {
 				a.errChan <- err // Send error to errChan
 				continue
 			}
 			if state.GameStatus == "ended" {
 				cancel()
+				return
 			}
+			oppShots := state.OppShots
+			a.game.MarkOpponentShots(oppShots)
 			a.gameStatusChannel <- state
 		}
 	}
@@ -119,12 +124,12 @@ loop:
 func (a *App) updateGameStatus(ctx context.Context) {
 	ticker := time.NewTicker(100 * time.Millisecond)
 	defer ticker.Stop()
-loop:
+
 	for {
 		select {
 		case <-ctx.Done():
-			fmt.Println("Done updating status")
-			break loop
+			fmt.Println("Done updating status OK")
+			return
 		case <-ticker.C:
 			state, err := a.game.GetGameState()
 			if err != nil {
@@ -161,13 +166,12 @@ loop:
 	for {
 		select {
 		case <-ctx.Done():
-			fmt.Println("Done reading shots")
+			fmt.Println("Done reading shots OK")
 			break loop
 		case shot := <-a.playerShotsChannel:
 			_, err := a.game.FireShot(shot)
 			if err != nil {
 				a.errChan <- err
-				continue
 			}
 		}
 	}
