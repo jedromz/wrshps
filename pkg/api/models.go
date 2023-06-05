@@ -85,12 +85,13 @@ type Shot struct {
 }
 
 type GameState struct {
-	PlayerBoard [10][10]string `json:"player_board"`
-	OppBoard    [10][10]string `json:"opp_board"`
-	TotalShots  int            `json:"total_shots"`
-	TotalHits   int            `json:"total_hits"`
-	PlayerDesc  string         `json:"player_desc"`
-	OppDesc     string         `json:"opp_desc"`
+	PlayerBoard  [10][10]string `json:"player_board"`
+	OppBoard     [10][10]string `json:"opp_board"`
+	TotalShots   int            `json:"total_shots"`
+	TotalHits    int            `json:"total_hits"`
+	PlayerDesc   string         `json:"player_desc"`
+	OppDesc      string         `json:"opp_desc"`
+	OppShipsSunk map[int]int
 }
 type GameStat struct {
 	Games  int    `json:"games"`

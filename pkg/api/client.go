@@ -105,6 +105,8 @@ func (c *Client) StartGame(nick, desc, targetNick string, coords []string, botGa
 	}
 	defer resp.Body.Close()
 
+	fmt.Println(err)
+
 	body, err = ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return "", err
@@ -278,6 +280,7 @@ func (c *Client) GetGameDescription() (GameDescription, error) {
 		if err := json.Unmarshal(body, &gameDescription); err != nil {
 			return GameDescription{}, err
 		}
+
 		return gameDescription, nil
 	case 401:
 		var errResp UnauthorizedError
@@ -490,4 +493,27 @@ func (c *Client) GetPlayerStats(nick string) (GameStats, error) {
 	}
 
 	return GameStats{response.Stats}, nil
+}
+
+func (c *Client) AbortGame() {
+	url := "https://go-pjatk-server.fly.dev/api/game/abort"
+
+	// Create the HTTP request
+	req, err := http.NewRequest("DELETE", url, nil)
+	if err != nil {
+		fmt.Println("Error:", err)
+		return
+	}
+
+	// Set the request headers
+	req.Header.Set("Content-Type", "application/json")
+
+	// Send the request
+	client := &http.Client{}
+	_, err = client.Do(req)
+	if err != nil {
+		fmt.Println("Error:", err)
+		return
+	}
+	return
 }

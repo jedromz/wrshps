@@ -6,13 +6,15 @@ import (
 
 // GameState manages the state of the game
 type GameState struct {
-	player        *Player
-	opponent      *Player
-	playerBoard   *Board
-	opponentBoard *Board
-	totalShots    int
-	hits          int
-	m             sync.Mutex
+	player         *Player
+	opponent       *Player
+	playerBoard    *Board
+	opponentBoard  *Board
+	totalShots     int
+	hits           int
+	m              sync.Mutex
+	lastGameStatus string
+	oppShipsSun    map[int]int
 }
 
 // NewGameState returns a new GameState
@@ -23,6 +25,12 @@ func NewGameState() *GameState {
 		opponent:      &Player{},
 		playerBoard:   NewBoard(),
 		opponentBoard: NewBoard(),
+		oppShipsSun: map[int]int{
+			1: 4,
+			2: 3,
+			3: 2,
+			4: 1,
+		},
 	}
 }
 
@@ -78,15 +86,18 @@ func (g *GameState) GetOpponentBoard() [10][10]string {
 	return g.opponentBoard.PlayerState
 }
 
-func (g *GameState) MarkOpponentBoard(x int, y int, result string) {
+func (g *GameState) MarkOpponentBoard(x int, y int, result string) int {
 	g.m.Lock()
 	defer g.m.Unlock()
 	if result == Sunk {
 		g.opponentBoard.PlayerState[x][y] = result
-		g.opponentBoard.DrawBorder(x, y)
-		return
+		_, l := g.opponentBoard.DrawBorder(x, y)
+		g.oppShipsSun[l]--
+		return l
 	}
 	g.opponentBoard.PlayerState[x][y] = result
+
+	return 0
 }
 
 func (g *GameState) IsHitAlready(x, y int) bool {
@@ -151,4 +162,31 @@ func (g *GameState) AddShip(x int, y int) {
 	g.m.Lock()
 	defer g.m.Unlock()
 	g.playerBoard.PlayerState[x][y] = Ship
+}
+
+func (g *GameState) ClearState() {
+	g.m.Lock()
+	defer g.m.Unlock()
+	g.playerBoard = NewBoard()
+	g.opponentBoard = NewBoard()
+	g.totalShots = 0
+	g.hits = 0
+}
+
+func (g *GameState) GetOppShipsSunk() map[int]int {
+	g.m.Lock()
+	defer g.m.Unlock()
+	return g.oppShipsSun
+}
+
+func (g *GameState) UpdateLastGameStatus(status string) {
+	g.m.Lock()
+	defer g.m.Unlock()
+	g.lastGameStatus = status
+}
+
+func (g *GameState) LastGameStatus() string {
+	g.m.Lock()
+	defer g.m.Unlock()
+	return g.lastGameStatus
 }

@@ -1,6 +1,6 @@
 package state
 
-func (b *Board) DrawBorder(x, y int) [][]int {
+func (b *Board) DrawBorder(x, y int) ([][]int, int) {
 	vec := [][]int{
 		{1, 0},
 		{0, 1},
@@ -11,7 +11,7 @@ func (b *Board) DrawBorder(x, y int) [][]int {
 		{-1, -1},
 		{1, -1},
 	}
-	shipFound := b.FindShip(x, y)
+	shipFound, l := b.FindShip(x, y)
 	for _, v := range vec {
 		for _, s := range shipFound {
 			xA := s[0] + v[0]
@@ -24,10 +24,10 @@ func (b *Board) DrawBorder(x, y int) [][]int {
 			}
 		}
 	}
-	return shipFound
+	return shipFound, l
 }
 
-func (b *Board) FindShip(x, y int) [][]int {
+func (b *Board) FindShip(x, y int) ([][]int, int) {
 	vec := [][]int{
 		{1, 0},
 		{0, 1},
@@ -44,7 +44,7 @@ func (b *Board) FindShip(x, y int) [][]int {
 	for _, v := range vec {
 		shipPlacement = append(shipPlacement, findShipRecursive(x, y, v, b)...)
 	}
-	return shipPlacement
+	return shipPlacement, len(shipPlacement)
 }
 func findShipRecursive(x, y int, v []int, b *Board) [][]int {
 	if x+v[0] < 0 || x+v[0] >= 10 || y+v[1] < 0 || y+v[1] >= 10 {

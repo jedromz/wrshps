@@ -6,13 +6,13 @@ const (
 	opponentBoardX = 50
 	opponentBoardY = 5
 	playerNickX    = 1
-	playerNickY    = 26
+	playerNickY    = 27
 	playerDescX    = 1
-	playerDescY    = 27
+	playerDescY    = 28
 	opponentNickX  = 50
-	opponentNickY  = 26
+	opponentNickY  = 27
 	opponentDescX  = 50
-	opponentDescY  = 27
+	opponentDescY  = 28
 	timerX         = 1
 	timerY         = 1
 )

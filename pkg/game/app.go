@@ -3,7 +3,6 @@ package game
 import (
 	"context"
 	"fmt"
-	gui "github.com/grupawp/warships-gui/v2"
 	"sync"
 	"time"
 	"warships/pkg/api"
@@ -44,7 +43,7 @@ func (a *App) StartPlayerGame(ctx context.Context) {
 			a.PlaceShips(ctx)
 		}
 		coords := a.game.GetPlayerCoords()
-
+		fmt.Println(coords)
 		var targetNick string
 		fmt.Println("Enter target nick: ")
 		fmt.Scanln(&targetNick)
@@ -128,16 +127,13 @@ func (a *App) StartBotGame(ctx context.Context) {
 		}
 		coords := a.game.GetPlayerCoords()
 
-		a.game.StartGame(nick, desc, "", coords, false)
+		a.game.StartGame(nick, desc, "", coords, true)
 		board, err := a.game.LoadPlayerBoard()
+
 		if err != nil {
 			a.errChan <- err // Send error to errChan
 		}
 		_, err = a.game.SetPlayerBoard(board.Board)
-
-		d, err := a.game.GetDescription()
-
-		a.game.UpdatePlayersDesc(d)
 		go func() {
 			defer wg.Done()
 			a.updateGameStatus(ctx)
@@ -181,7 +177,13 @@ func (a *App) StartBotGame(ctx context.Context) {
 			a.gui.gui.Start(ctx, nil)
 		}()
 		wg.Wait() // Wait for all goroutines to finish
+		a.game.LastGameStatus()
 		fmt.Println("Would you like to play again? (y/n)")
+		var choice string
+		fmt.Scanln(&choice)
+		if choice == "n" {
+			break
+		}
 
 	}
 
@@ -199,13 +201,19 @@ loop:
 			break loop
 		case <-ticker.C:
 			state, err := a.game.GetGameStatus()
+			a.game.UpdateLastGameStatus(state.LastGameStatus)
 			if err != nil {
 				a.errChan <- err // Send error to errChan
 				continue
 			}
 			if state.GameStatus == "ended" {
+				a.game.ClearState()
 				cancel()
 				return
+			}
+			if state.GameStatus == "game_in_progress" {
+				d, _ := a.game.GetDescription()
+				a.game.UpdatePlayersDesc(d)
 			}
 			oppShots := state.OppShots
 			a.game.MarkOpponentShots(oppShots)
@@ -231,12 +239,13 @@ func (a *App) updateGameStatus(ctx context.Context) {
 				continue
 			}
 			a.gameStateChannel <- api.GameState{
-				PlayerBoard: state.GetPlayerBoard(),
-				OppBoard:    state.GetOpponentBoard(),
-				TotalHits:   state.GetTotalHits(),
-				TotalShots:  state.GetTotalShots(),
-				PlayerDesc:  state.GetPlayerDesc(),
-				OppDesc:     state.GetOppDesc(),
+				PlayerBoard:  state.GetPlayerBoard(),
+				OppBoard:     state.GetOpponentBoard(),
+				TotalHits:    state.GetTotalHits(),
+				TotalShots:   state.GetTotalShots(),
+				PlayerDesc:   state.GetPlayerDesc(),
+				OppDesc:      state.GetOppDesc(),
+				OppShipsSunk: state.GetOppShipsSunk(),
 			}
 		}
 	}
@@ -265,7 +274,7 @@ loop:
 			fmt.Println("Done reading shots OK")
 			break loop
 		case shot := <-a.playerShotsChannel:
-			_, err := a.game.FireShot(shot)
+			_, _, err := a.game.FireShot(shot)
 			if err != nil {
 				a.errChan <- err
 			}
@@ -284,64 +293,6 @@ func (a *App) EnterPlayerInfo(ctx context.Context) {
 	a.game.UpdatePlayerInfo(name, description)
 }
 
-func (a *App) PlaceShips(ctx context.Context) {
-	var mutex sync.Mutex
-
-	ships := map[int]int{
-		4: 1,
-		3: 2,
-		2: 3,
-		1: 4,
-	}
-	currStates := [10][10]gui.State{}
-	newStates := [10][10]gui.State{}
-	var fullCoords []string
-
-	board := gui.NewBoard(0, 0, nil)
-	hint := gui.NewText(50, 0, "Place some ship(s)", nil)
-	placeGui := gui.NewGUI(true)
-	placeGui.Draw(board)
-	placeGui.Draw(hint)
-	go func() {
-		for k, v := range ships {
-			hint.SetText(fmt.Sprintf("Place %v ship(s) of length %v", v, k))
-			placeGui.Draw(hint)
-			for i := 0; i < v; i++ {
-				var coords []string
-				for j := 0; j < k; j++ {
-					coord := board.Listen(ctx)
-					coords = append(coords, coord)
-					x, y := mapToState(coord)
-
-					mutex.Lock()
-					newStates[x][y] = gui.Ship
-					mutex.Unlock()
-					board.SetStates(newStates)
-				}
-				mutex.Lock()
-				valid := isValidPlacement(coords) && touchesAnotherShip(coords, currStates) == false
-				mutex.Unlock()
-				if valid {
-					currStates = newStates
-					fullCoords = append(fullCoords, coords...)
-				} else {
-					hint.SetText("Invalid placement, try again")
-					placeGui.Draw(hint)
-					for _, coord := range coords {
-						x, y := mapToState(coord)
-						newStates[x][y] = gui.Empty
-					}
-					board.SetStates(newStates)
-					i--
-				}
-			}
-		}
-		hint.SetText("Done placing ships. Press ctrl+c save and exit")
-		a.game.SetPlayerBoard(fullCoords)
-	}()
-	placeGui.Start(ctx, nil)
-}
-
 func (a *App) GetPlayerStats(ctx context.Context) {
 	fmt.Println("Enter player nick: ")
 	var name string
@@ -353,78 +304,4 @@ func (a *App) GetPlayerStats(ctx context.Context) {
 func (a *App) PrintLobby() {
 	lobby := a.game.GetPlayerLobby()
 	fmt.Println(lobby)
-}
-
-func mapToState(coord string) (int, int) {
-	if len(coord) > 2 {
-		return int(coord[0] - 65), 9
-	}
-	x := int(coord[0] - 65)
-	y := int(coord[1] - 49)
-	return x, y
-}
-
-// check if the placement is correct
-func isAlreadyPlaced(x, y int, states [10][10]gui.State) bool {
-	return states[x][y] != gui.Empty
-}
-func isValidPlacement(coords []string) bool {
-	if len(coords) == 0 || len(coords) > 4 {
-		return false
-	}
-
-	x, y := mapToState(coords[0])
-	directions := [][]int{{1, 0}, {-1, 0}, {0, 1}, {0, -1}} // Right, Left, Down, Up
-
-	for i := 1; i < len(coords); i++ {
-		xi, yi := mapToState(coords[i])
-
-		if xi != x && yi != y {
-			return false // Invalid coordinate placement (not horizontal or vertical)
-		}
-
-		found := false
-		for _, dir := range directions {
-			dx, dy := dir[0], dir[1]
-			if xi == x+dx && yi == y+dy {
-				found = true
-				break
-			}
-		}
-
-		if !found {
-			return false // Invalid coordinate placement (not adjacent)
-		}
-
-		x, y = xi, yi
-	}
-
-	return true
-}
-func touchesAnotherShip(coords []string, states [10][10]gui.State) bool {
-	for _, v := range coords {
-		x, y := mapToState(v)
-		if hasShipAround(x, y, states) {
-			return true
-		}
-	}
-
-	return false
-}
-func hasShipAround(x, y int, states [10][10]gui.State) bool {
-	return isShip(x-1, y, states) || // Left
-		isShip(x+1, y, states) || // Right
-		isShip(x, y-1, states) || // Up
-		isShip(x, y+1, states) || // Down
-		isShip(x-1, y-1, states) || // Top Left
-		isShip(x-1, y+1, states) || // Bottom Left
-		isShip(x+1, y-1, states) || // Top Right
-		isShip(x+1, y+1, states) // Bottom Right
-}
-
-func isShip(x, y int, states [10][10]gui.State) bool {
-	if x > 9 || y > 9 || x < 0 || y < 0 {
-		return false
-	}
-	return states[x][y] == gui.Ship
 }

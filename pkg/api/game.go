@@ -24,15 +24,15 @@ func NewGame() *Game {
 	}
 }
 
-func (g *Game) FireShot(coord string) (FireResult, error) {
+func (g *Game) FireShot(coord string) (FireResult, int, error) {
 	result, err := g.client.Fire(FireData{
 		Coord: coord},
 	)
 	if err != nil {
-		return FireResult{}, err
+		return FireResult{}, 0, err
 	}
-	g.MarkOpponent(coord, result)
-	return result, err
+	l := g.MarkOpponent(coord, result)
+	return result, l, err
 }
 
 // StartGame starts the game
@@ -90,9 +90,9 @@ func (g *Game) GetOpponentBoard() [10][10]string {
 
 }
 
-func (g *Game) MarkOpponent(shot string, result FireResult) {
+func (g *Game) MarkOpponent(shot string, result FireResult) int {
 	if shot == "" {
-		return
+		return 0
 	}
 	x, y := mapToState(shot)
 	var mark string
@@ -105,7 +105,7 @@ func (g *Game) MarkOpponent(shot string, result FireResult) {
 		mark = state.Miss
 	}
 	g.state.IncreaseHits(result.Result)
-	g.state.MarkOpponentBoard(x, y, mark)
+	return g.state.MarkOpponentBoard(x, y, mark)
 }
 
 func (g *Game) UpdatePlayerInfo(name string, description string) {
@@ -171,6 +171,22 @@ func (g *Game) GetPlayerLobby() []LobbyPlayer {
 		return []LobbyPlayer{}
 	}
 	return lobby
+}
+
+func (g *Game) ClearState() {
+	g.state.ClearState()
+}
+
+func (g *Game) UpdateLastGameStatus(status string) {
+	g.state.UpdateLastGameStatus(status)
+}
+
+func (g *Game) LastGameStatus() string {
+	return g.state.LastGameStatus()
+}
+
+func (g *Game) AbortGame() {
+	g.client.AbortGame()
 }
 
 func mapFromState(x, y int) string {
