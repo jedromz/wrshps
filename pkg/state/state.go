@@ -58,12 +58,7 @@ func (g *GameState) UpdatePlayerBoard(playerState [10][10]string) ([10][10]strin
 	g.playerBoard.updatePlayerStates(playerState)
 	return g.playerBoard.PlayerState, nil
 }
-func (g *GameState) UpdateOpponentBoard(opponentState [10][10]string) ([10][10]string, error) {
-	g.m.Lock()
-	defer g.m.Unlock()
-	g.opponentBoard.updatePlayerStates(opponentState)
-	return g.opponentBoard.PlayerState, nil
-}
+
 func (g *GameState) GetPlayerBoard() [10][10]string {
 	g.m.Lock()
 	defer g.m.Unlock()
@@ -98,13 +93,6 @@ func (g *GameState) MarkOpponentBoard(x int, y int, result string) int {
 	g.opponentBoard.PlayerState[x][y] = result
 
 	return 0
-}
-
-func (g *GameState) IsHitAlready(x, y int) bool {
-	g.m.Lock()
-	defer g.m.Unlock()
-	s := g.opponentBoard.PlayerState[x][y]
-	return s == Hit || s == Miss
 }
 
 func (g *GameState) IncreaseHits(str string) {

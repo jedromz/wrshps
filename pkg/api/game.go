@@ -68,9 +68,6 @@ func (g *Game) LoadPlayerBoard() (*GameBoard, error) {
 	return g.client.GetGameBoard()
 }
 
-func (g *Game) UpdateGameState(nick string, desc string, opponent string, oppDesc string) {
-	g.state.UpdateGameState(nick, desc, opponent, oppDesc)
-}
 func (g *Game) GetPlayerBoard() [10][10]string {
 	return g.state.GetPlayerBoard()
 }
@@ -128,11 +125,6 @@ func (g *Game) GetTopPlayerStats() (TopPlayerStats, error) {
 	return stats, nil
 }
 
-func (g *Game) MarkPlayerShip(coords string) {
-	x, y := mapToState(coords)
-	g.state.AddShip(x, y)
-}
-
 func (g *Game) GetPlayerCoords() []string {
 	states := g.state.GetPlayerBoard()
 
@@ -183,10 +175,6 @@ func (g *Game) UpdateLastGameStatus(status string) {
 
 func (g *Game) LastGameStatus() string {
 	return g.state.LastGameStatus()
-}
-
-func (g *Game) AbortGame() {
-	g.client.AbortGame()
 }
 
 func mapFromState(x, y int) string {
