@@ -6,8 +6,62 @@ import (
 	"sync"
 	"time"
 	"warships/pkg/api"
+	"warships/pkg/state"
 )
 
+type GameInterface interface {
+	FireShot(coord string) (api.FireResult, int, error)
+	StartGame(nick, desc, targetNick string, coords []string, botGame bool)
+	GetGameStatus() (api.GameStatus, error)
+	SetPlayerBoard(coords []string) ([10][10]string, error)
+	GetDescription() (api.GameDescription, error)
+	LoadPlayerBoard() (*api.GameBoard, error)
+	UpdateGameState(nick string, desc string, opponent string, oppDesc string)
+	GetPlayerBoard() [10][10]string
+	MarkOpponentShots(shots []string)
+	GetGameState() (*state.GameState, error)
+	GetOpponentBoard() [10][10]string
+	MarkOpponent(shot string, result api.FireResult) int
+	UpdatePlayerInfo(name string, description string)
+	GetPlayerInfo() (string, string)
+	UpdatePlayersDesc(d api.GameDescription)
+	GetTopPlayerStats() (api.TopPlayerStats, error)
+	MarkPlayerShip(coords string)
+	GetPlayerCoords() []string
+	GetPlayerStats(name string) api.GameStats
+	GetPlayerLobby() []api.LobbyPlayer
+	ClearState()
+	UpdateLastGameStatus(status string)
+	LastGameStatus() string
+	AbortGame()
+}
+type GameStateInterface interface {
+	GetGameState() *state.GameState
+	UpdateGameState(nick, desc, opp, oppdesc string)
+	UpdatePlayerBoard(playerState [10][10]string) ([10][10]string, error)
+	UpdateOpponentBoard(opponentState [10][10]string) ([10][10]string, error)
+	GetPlayerBoard() [10][10]string
+	MarkPlayerBoard(x, y int)
+	GetOpponentBoard() [10][10]string
+	MarkOpponentBoard(x int, y int, result string) int
+	IsHitAlready(x, y int) bool
+	IncreaseHits(str string)
+	GetTotalShots() int
+	GetTotalHits() int
+	UpdatePlayerInfo(name string, description string)
+	GetPlayerInfo() (string, string)
+	GetOppDesc() string
+	GetPlayerDesc() string
+	UpdatePlayersDesc(desc, oppDesc string)
+	AddShip(x int, y int)
+	ClearState()
+	GetOppShipsSunk() map[int]int
+	UpdateLastGameStatus(status string)
+	LastGameStatus() string
+}
+
+type Interface interface {
+}
 type App struct {
 	gui                *Gui
 	game               *api.Game
@@ -176,7 +230,7 @@ func (a *App) StartBotGame(ctx context.Context) {
 			defer wg.Done()
 			a.gui.gui.Start(ctx, nil)
 		}()
-		wg.Wait() // Wait for all goroutines to finish
+		wg.Wait()
 		a.game.LastGameStatus()
 		fmt.Println("Would you like to play again? (y/n)")
 		var choice string
