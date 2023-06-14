@@ -90,14 +90,14 @@ func (a *App) StartPlayerGame(ctx context.Context) {
 		var wg sync.WaitGroup
 
 		nick, desc := a.game.GetPlayerInfo()
-		fmt.Println("would you like to place your ships?")
+		fmt.Println("would you like to place your ships? (y/n)")
 		var answer string
 		fmt.Scanln(&answer)
 		if answer == "y" {
 			a.PlaceShips(ctx)
 		}
 		coords := a.game.GetPlayerCoords()
-		fmt.Println(coords)
+
 		var targetNick string
 		fmt.Println("Enter target nick: ")
 		fmt.Scanln(&targetNick)
@@ -154,7 +154,12 @@ func (a *App) StartPlayerGame(ctx context.Context) {
 			defer wg.Done()
 			a.gui.gui.Start(ctx, nil)
 		}()
-		wg.Wait() // Wait for all goroutines to finish
+		var s string
+		fmt.Scanln(&s)
+		a.game.AbortGame()
+		cancel()
+		wg.Wait()
+
 		fmt.Println("Would you like to play again? (y/n)")
 		var choice string
 		fmt.Scanln(&choice)
@@ -168,7 +173,6 @@ func (a *App) StartPlayerGame(ctx context.Context) {
 func (a *App) StartBotGame(ctx context.Context) {
 	for {
 		ctx, cancel := context.WithCancel(ctx)
-
 		var wg sync.WaitGroup
 		wg.Add(9)
 		nick, desc := a.game.GetPlayerInfo()
@@ -230,7 +234,11 @@ func (a *App) StartBotGame(ctx context.Context) {
 			defer wg.Done()
 			a.gui.gui.Start(ctx, nil)
 		}()
+		var s string
+		fmt.Scanln(&s)
+		a.game.AbortGame()
 		wg.Wait()
+
 		a.game.LastGameStatus()
 		fmt.Println("Would you like to play again? (y/n)")
 		var choice string
@@ -255,6 +263,7 @@ loop:
 			break loop
 		case <-ticker.C:
 			state, err := a.game.GetGameStatus()
+			fmt.Println(state.GameStatus)
 			a.game.UpdateLastGameStatus(state.LastGameStatus)
 			if err != nil {
 				a.errChan <- err // Send error to errChan
@@ -284,7 +293,6 @@ func (a *App) updateGameStatus(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
-			fmt.Println("Done updating status OK")
 			return
 		case <-ticker.C:
 			state, err := a.game.GetGameState()

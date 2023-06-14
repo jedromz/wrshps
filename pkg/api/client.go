@@ -116,7 +116,7 @@ func (c *Client) StartGame(nick, desc, targetNick string, coords []string, botGa
 	case 200:
 		token := resp.Header.Get("X-Auth-Token")
 		c.Token = token
-
+		fmt.Println(token)
 		return token, nil
 	case 400:
 		var errResp BadRequestError
@@ -495,25 +495,34 @@ func (c *Client) GetPlayerStats(nick string) (GameStats, error) {
 	return GameStats{response.Stats}, nil
 }
 
-func (c *Client) AbortGame() {
-	url := "https://go-pjatk-server.fly.dev/api/game/abort"
+func (c *Client) AbortGame() error {
+	url := "https://go-pjatk-server.fly.dev/api/game/abandon"
 
 	// Create the HTTP request
 	req, err := http.NewRequest("DELETE", url, nil)
 	if err != nil {
-		fmt.Println("Error:", err)
-		return
+		fmt.Println("Error creating HTTP request:", err)
+		return err
 	}
-
-	// Set the request headers
+	req.Header.Set("X-Auth-Token", c.Token)
 	req.Header.Set("Content-Type", "application/json")
 
 	// Send the request
 	client := &http.Client{}
-	_, err = client.Do(req)
+	resp, err := client.Do(req)
+	fmt.Println(resp.StatusCode)
 	if err != nil {
-		fmt.Println("Error:", err)
-		return
+		fmt.Println("Error sending HTTP request:", err)
+		return err
 	}
-	return
+	defer resp.Body.Close()
+
+	// Check the response status code
+	if resp.StatusCode != http.StatusOK {
+		fmt.Println("Unexpected response:", resp.Status)
+		return fmt.Errorf("unexpected response: %s", resp.Status)
+	}
+	fmt.Println("HERE")
+	fmt.Println("Game aborted")
+	return nil
 }
