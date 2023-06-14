@@ -111,7 +111,7 @@ func (a *App) StartPlayerGame(ctx context.Context) {
 
 		_, err = a.game.GetDescription()
 
-		wg.Add(9)
+		wg.Add(8)
 		go func() {
 			defer wg.Done()
 			a.updateGameStatus(ctx)
@@ -150,10 +150,13 @@ func (a *App) StartPlayerGame(ctx context.Context) {
 			defer wg.Done()
 			a.gui.listenPlayerShots(ctx, a.playerShotsChannel)
 		}()
-		go func() {
-			defer wg.Done()
-			a.gui.gui.Start(ctx, nil)
-		}()
+		a.gui.gui.Start(ctx, nil)
+		fmt.Println("Abort?")
+		var c string
+		fmt.Scanln(&c)
+		if c == "y" {
+			a.game.AbortGame()
+		}
 
 		wg.Wait()
 
@@ -171,7 +174,7 @@ func (a *App) StartBotGame(ctx context.Context) {
 	for {
 		ctx, cancel := context.WithCancel(ctx)
 		var wg sync.WaitGroup
-		wg.Add(9)
+		wg.Add(8)
 		nick, desc := a.game.GetPlayerInfo()
 
 		fmt.Println("would you like to place your ships?")
@@ -227,10 +230,13 @@ func (a *App) StartBotGame(ctx context.Context) {
 			defer wg.Done()
 			a.gui.listenPlayerShots(ctx, a.playerShotsChannel)
 		}()
-		go func() {
-			defer wg.Done()
-			a.gui.gui.Start(ctx, nil)
-		}()
+		a.gui.gui.Start(ctx, nil)
+		fmt.Println("Abort?")
+		var c string
+		fmt.Scanln(&c)
+		if c == "y" {
+			a.game.AbortGame()
+		}
 
 		wg.Wait()
 
