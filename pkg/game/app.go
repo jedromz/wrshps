@@ -154,10 +154,7 @@ func (a *App) StartPlayerGame(ctx context.Context) {
 			defer wg.Done()
 			a.gui.gui.Start(ctx, nil)
 		}()
-		var s string
-		fmt.Scanln(&s)
-		a.game.AbortGame()
-		cancel()
+
 		wg.Wait()
 
 		fmt.Println("Would you like to play again? (y/n)")
@@ -234,9 +231,7 @@ func (a *App) StartBotGame(ctx context.Context) {
 			defer wg.Done()
 			a.gui.gui.Start(ctx, nil)
 		}()
-		var s string
-		fmt.Scanln(&s)
-		a.game.AbortGame()
+
 		wg.Wait()
 
 		a.game.LastGameStatus()
@@ -263,7 +258,6 @@ loop:
 			break loop
 		case <-ticker.C:
 			state, err := a.game.GetGameStatus()
-			fmt.Println(state.GameStatus)
 			a.game.UpdateLastGameStatus(state.LastGameStatus)
 			if err != nil {
 				a.errChan <- err // Send error to errChan

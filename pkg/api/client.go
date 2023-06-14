@@ -510,7 +510,7 @@ func (c *Client) AbortGame() error {
 	// Send the request
 	client := &http.Client{}
 	resp, err := client.Do(req)
-	fmt.Println(resp.StatusCode)
+
 	if err != nil {
 		fmt.Println("Error sending HTTP request:", err)
 		return err
@@ -522,7 +522,6 @@ func (c *Client) AbortGame() error {
 		fmt.Println("Unexpected response:", resp.Status)
 		return fmt.Errorf("unexpected response: %s", resp.Status)
 	}
-	fmt.Println("HERE")
-	fmt.Println("Game aborted")
+
 	return nil
 }

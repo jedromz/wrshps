@@ -154,15 +154,19 @@ func getAccuracy(hits, shots int) string {
 }
 
 func (g *Gui) listenPlayerShots(ctx context.Context, shots chan string) {
+	var s []string
 loop:
+
 	for {
+
 		select {
 		case <-ctx.Done():
-			fmt.Println("Done listening OK")
+
 			break loop
 		default:
 			shot := g.opponentBoard.Listen(ctx)
-			if shot != "" {
+			if shot != "" && !contains(s, shot) {
+				s = append(s, shot)
 				shots <- shot
 			}
 		}
@@ -186,4 +190,12 @@ func mapStatesToGuiMarks(sts [10][10]string) [10][10]gui.State {
 		}
 	}
 	return mapped
+}
+func contains(slice []string, item string) bool {
+	for _, s := range slice {
+		if s == item {
+			return true
+		}
+	}
+	return false
 }
