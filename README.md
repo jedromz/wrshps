@@ -14,7 +14,7 @@ git clone https://github.com/jedromz/wrshps.git
   ```
   ## Run the binary 🏃
    ```bash
-  ./wrshps`
+  ./wrshps
   ```
 
     
